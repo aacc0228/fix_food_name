@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>向量語意搜尋美食</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'; background-color: #f8f9fa; color: #212529; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; padding: 2rem; }
+        .container { width: 100%; max-width: 700px; background-color: #ffffff; padding: 2rem 3rem; border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1); }
+        h1 { text-align: center; color: #343a40; margin-bottom: 0.5rem; }
+        p.subtitle { text-align: center; color: #6c757d; margin-bottom: 2rem; }
+        form { display: flex; gap: 1rem; margin-bottom: 2rem; }
+        input[type="text"] { flex-grow: 1; padding: 0.8rem; border: 1px solid #ced4da; border-radius: 8px; font-size: 1rem; transition: border-color 0.2s, box-shadow 0.2s; }
+        input[type="text"]:focus { border-color: #80bdff; outline: 0; box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); }
+        button { padding: 0.8rem 1.5rem; border: none; background-color: #28a745; color: white; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background-color 0.3s ease; }
+        button:hover { background-color: #218838; }
+        .results-section { margin-top: 2rem; border-top: 1px solid #dee2e6; padding-top: 1.5rem; }
+        h2 { margin-top: 0; color: #495057; }
+        .result-item { background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; transition: transform 0.2s; }
+        .result-item:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.07); }
+        .item-name { font-size: 1.2rem; font-weight: bold; color: #007bff; }
+        .item-score { font-size: 0.9rem; color: #6c757d; background-color: #e9ecef; padding: 0.3rem 0.6rem; border-radius: 1rem; }
+        .error { color: #dc3545; font-weight: bold; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 1rem; border-radius: 8px; }
+        .no-results { color: #6c757d; }
+        pre { white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', Courier, monospace; font-size: 0.9rem; line-height: 1.6; color: #555; background-color: #f1f1f1; padding: 1rem; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>向量語意搜尋美食</h1>
+        <p class="subtitle">輸入您想吃的東西，例如「葉蛋」或「甜的蛋糕」，AI 會找出菜單中最相似的品項。</p>
+        <form method="POST" action="/">
+            <input type="text" name="query" placeholder="例如：葉蛋 或 炸雞" value="{{ query or '' }}" required>
+            <button type="submit">AI 搜尋</button>
+        </form>
+
+        <!-- ★★★ 修正點：使用更嚴謹的邏輯來判斷並顯示結果 ★★★ -->
+        {% if results is not none %}
+        <div class="results-section">
+            <h2>搜尋結果</h2>
+            
+            <!-- 情況一：results 是一個字串 (代表發生錯誤) -->
+            {% if results is string %}
+                <p class="error">{{ results }}</p>
+            
+            <!-- 情況二：results 是一個列表，且長度大於 0 (代表有找到結果) -->
+            {% elif results|length > 0 %}
+                {% for item in results %}
+                <div class="result-item">
+                    <span class="item-name">{{ item.name }}</span>
+                    <span class="item-score">相似度: {{ "%.4f"|format(item.score) }}</span>
+                </div>
+                {% endfor %}
+            
+            <!-- 情況三：results 是一個空列表 [] (代表沒找到符合門檻的結果) -->
+            {% else %}
+                <p class="no-results">找不到符合門檻的結果，請試試別的關鍵字。</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- 日誌顯示區塊 (保持不變) -->
+        {% if log %}
+        <div class="results-section">
+            <h2>執行日誌</h2>
+            <pre>{{ log }}</pre>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

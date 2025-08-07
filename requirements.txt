@@ -1,0 +1,6 @@
+Flask
+python-dotenv
+pyodbc
+mysql-connector-python
+openai
+qdrant-client
