@@ -40,8 +40,33 @@ jobs:
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
 
-      # ★★★ 修正點：將 Docker 相關操作合併為一個步驟 ★★★
-      # 這樣可以確保 gcloud 授權和 docker 指令在同一個驗證上下文中執行，是最穩健的做法。
+      # ★★★ 新增的最終驗證步驟 ★★★
+      # 這個步驟會明確地檢查金鑰所屬的專案是否與您指定的專案 ID 一致
+      - name: 'Debug: Verify Authenticated Project'
+        run: |
+          echo "--- 正在驗證 GCP 專案 ID ---"
+          # 從金鑰中提取服務帳戶 Email
+          SA_EMAIL=$(echo '${{ secrets.GCP_SA_KEY }}' | jq -r .client_email)
+          echo "使用的服務帳戶 Email: $SA_EMAIL"
+          
+          # 取得 gcloud 驗證後設定的專案 ID
+          AUTH_PROJECT_ID=$(gcloud config get-value project)
+          echo "金鑰所屬的專案 ID: $AUTH_PROJECT_ID"
+          
+          # 取得工作流程中寫死的專案 ID
+          TARGET_PROJECT_ID="${{ env.PROJECT_ID }}"
+          echo "目標專案 ID: $TARGET_PROJECT_ID"
+          
+          # 比較兩者是否一致
+          if [ "$AUTH_PROJECT_ID" != "$TARGET_PROJECT_ID" ]; then
+            echo "::error::嚴重錯誤：金鑰所屬的專案 ($AUTH_PROJECT_ID) 與目標專案 ($TARGET_PROJECT_ID) 不符。請確認您的 GCP_SA_KEY Secret 是否來自正確的 GCP 專案。"
+            exit 1
+          else
+            echo "✅ 專案 ID 驗證成功。"
+          fi
+          echo "---------------------------------"
+
+      # 步驟 4: 將 Docker 相關操作合併為一個步驟
       - name: Build and Push Docker Image
         id: build-and-push
         run: |
@@ -59,7 +84,7 @@ jobs:
           # 推送映像檔
           docker push $IMAGE_TAG
 
-      # 步驟 4: 部署新的映像檔至 Cloud Run
+      # 步驟 5: 部署新的映像檔至 Cloud Run
       - name: Deploy to Cloud Run
         id: deploy
         uses: 'google-github-actions/deploy-cloudrun@v2'
@@ -86,6 +111,6 @@ jobs:
             DB_MYSQL_PASSWORD=${{ secrets.DB_MYSQL_PASSWORD }}
             DB_MYSQL_NAME=${{ secrets.DB_MYSQL_NAME }}
 
-      # 步驟 5: 輸出部署後的服務網址
+      # 步驟 6: 輸出部署後的服務網址
       - name: Show Output
         run: echo "Successfully deployed to ${{ steps.deploy.outputs.url }}"
