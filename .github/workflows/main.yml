@@ -35,9 +35,7 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # ★★★ 新增的驗證步驟 ★★★
-      # 在執行任何操作前，先檢查 GCP_PROJECT_ID 是否存在。
-      # 如果這個步驟失敗，代表您的 GitHub Secret 沒有被正確讀取。
+      # 步驟 3: 驗證 GCP_PROJECT_ID Secret 是否存在
       - name: Validate GCP_PROJECT_ID Secret
         run: |
           if [ -z "${{ secrets.GCP_PROJECT_ID }}" ]; then
@@ -47,31 +45,42 @@ jobs:
             echo "成功讀取 GCP_PROJECT_ID Secret。"
           fi
 
-      # 步驟 3: 設定 gcloud CLI (這個步驟會自動設定專案)
+      # ★★★ 修正點：新增一個步驟來明確地組合完整的映像檔名稱 ★★★
+      # 這是最可靠的方法，可以避免在後續步驟中發生變數解析錯誤。
+      - name: Construct Docker Image Name
+        id: image_name
+        run: |
+          IMAGE_NAME="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "組合後的映像檔名稱為: ${IMAGE_NAME}"
+
+      # 步驟 4: 設定 gcloud CLI
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
 
-      # 步驟 4: 授權 Docker 可以推送到 Google Artifact Registry
+      # 步驟 5: 授權 Docker 可以推送到 Google Artifact Registry
       - name: Configure Docker
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
 
-      # 步驟 5: 建置 Docker 映像檔
+      # 步驟 6: 建置 Docker 映像檔
+      # 現在直接使用我們在上一步組合好的 $IMAGE_NAME 變數
       - name: Build Docker image
-        run: docker build -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
+        run: docker build -t $IMAGE_NAME .
 
-      # 步驟 6: 推送 Docker 映像檔至 Artifact Registry
+      # 步驟 7: 推送 Docker 映像檔至 Artifact Registry
+      # 同樣，直接使用 $IMAGE_NAME 變數
       - name: Push Docker image
-        run: docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+        run: docker push $IMAGE_NAME
 
-      # 步驟 7: 部署新的映像檔至 Cloud Run
+      # 步驟 8: 部署新的映像檔至 Cloud Run
       - name: Deploy to Cloud Run
         id: deploy
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
-          # 指定要部署的映像檔
-          image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          # 同樣，直接使用 $IMAGE_NAME 變數
+          image: ${{ env.IMAGE_NAME }}
           # 將 GitHub Secrets 作為環境變數傳遞給 Cloud Run
           env_vars: |
             AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
@@ -91,6 +100,6 @@ jobs:
             DB_MYSQL_PASSWORD=${{ secrets.DB_MYSQL_PASSWORD }}
             DB_MYSQL_NAME=${{ secrets.DB_MYSQL_NAME }}
 
-      # 步驟 8: 輸出部署後的服務網址
+      # 步驟 9: 輸出部署後的服務網址
       - name: Show Output
         run: echo "Successfully deployed to ${{ steps.deploy.outputs.url }}"
