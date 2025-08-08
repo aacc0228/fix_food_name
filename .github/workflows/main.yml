@@ -45,14 +45,14 @@ jobs:
             echo "成功讀取 GCP_PROJECT_ID Secret。"
           fi
 
-      # ★★★ 修正點：新增一個步驟來明確地組合完整的映像檔名稱 ★★★
-      # 這是最可靠的方法，可以避免在後續步驟中發生變數解析錯誤。
+      # ★★★ 最終修正點：使用 Step Outputs 來設定映像檔名稱 ★★★
+      # 這是最可靠的方法，可以避免所有變數解析的問題。
       - name: Construct Docker Image Name
         id: image_name
         run: |
-          IMAGE_NAME="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
-          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
-          echo "組合後的映像檔名稱為: ${IMAGE_NAME}"
+          IMAGE_TAG="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "組合後的映像檔名稱為: ${IMAGE_TAG}"
 
       # 步驟 4: 設定 gcloud CLI
       - name: Set up Cloud SDK
@@ -63,14 +63,14 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
 
       # 步驟 6: 建置 Docker 映像檔
-      # 現在直接使用我們在上一步組合好的 $IMAGE_NAME 變數
+      # 現在從上一步的輸出 (outputs) 中讀取完整的映像檔名稱
       - name: Build Docker image
-        run: docker build -t $IMAGE_NAME .
+        run: docker build -t ${{ steps.image_name.outputs.image_tag }} .
 
       # 步驟 7: 推送 Docker 映像檔至 Artifact Registry
-      # 同樣，直接使用 $IMAGE_NAME 變數
+      # 同樣，從步驟輸出中讀取
       - name: Push Docker image
-        run: docker push $IMAGE_NAME
+        run: docker push ${{ steps.image_name.outputs.image_tag }}
 
       # 步驟 8: 部署新的映像檔至 Cloud Run
       - name: Deploy to Cloud Run
@@ -79,8 +79,8 @@ jobs:
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
-          # 同樣，直接使用 $IMAGE_NAME 變數
-          image: ${{ env.IMAGE_NAME }}
+          # 同樣，從步驟輸出中讀取
+          image: ${{ steps.image_name.outputs.image_tag }}
           # 將 GitHub Secrets 作為環境變數傳遞給 Cloud Run
           env_vars: |
             AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
