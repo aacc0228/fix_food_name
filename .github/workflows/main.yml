@@ -9,10 +9,6 @@ on:
 
 # 環境變數，方便在整個工作流程中重複使用
 env:
-  # ★★★ 修正點：直接在此處設定 PROJECT_ID ★★★
-  # 這樣可以確保在整個工作流程中，這個變數都是可用的。
-  # 請務必確認您在 GitHub Secrets 中已正確設定 GCP_PROJECT_ID。
-  PROJECT_ID: modular-buffer-467407-i0
   GAR_LOCATION: asia-east1 # Google Artifact Registry 的位置，例如 asia-east1 (台灣)
   SERVICE_NAME: food-search-api # 您在 Cloud Run 上的服務名稱
   REGION: asia-east1 # 您 Cloud Run 服務的區域
@@ -48,12 +44,14 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
 
       # 步驟 5: 建置 Docker 映像檔
+      # ★★★ 修正點：直接在指令中使用 secrets.GCP_PROJECT_ID ★★★
+      # 這是最直接的方式，可以避免環境變數傳遞的問題。
       - name: Build Docker image
-        run: docker build -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
+        run: docker build -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
 
       # 步驟 6: 推送 Docker 映像檔至 Artifact Registry
       - name: Push Docker image
-        run: docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+        run: docker push ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
 
       # 步驟 7: 部署新的映像檔至 Cloud Run
       - name: Deploy to Cloud Run
@@ -63,7 +61,7 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
           # 指定要部署的映像檔
-          image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          image: ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
           # 將 GitHub Secrets 作為環境變數傳遞給 Cloud Run
           env_vars: |
             AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
