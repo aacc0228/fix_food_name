@@ -35,22 +35,14 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # 步驟 3: 驗證 GCP_PROJECT_ID Secret 是否存在
-      - name: Validate GCP_PROJECT_ID Secret
-        run: |
-          if [ -z "${{ secrets.GCP_PROJECT_ID }}" ]; then
-            echo "錯誤：找不到 GCP_PROJECT_ID Secret。請檢查您的 GitHub 倉庫設定。"
-            exit 1
-          else
-            echo "成功讀取 GCP_PROJECT_ID Secret。"
-          fi
-
-      # ★★★ 最終修正點：使用 Step Outputs 來設定映像檔名稱 ★★★
-      # 這是最可靠的方法，可以避免所有變數解析的問題。
+      # ★★★ 最終除錯步驟：直接將 Project ID 寫死 ★★★
+      # 這樣可以完全排除讀取 Secret 失敗的可能性。
+      # 請將 'your-actual-project-id' 替換為您真實的 GCP 專案 ID。
       - name: Construct Docker Image Name
         id: image_name
         run: |
-          IMAGE_TAG="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          PROJECT_ID="modular-buffer-467407-i0" 
+          IMAGE_TAG="${{ env.GAR_LOCATION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
           echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
           echo "組合後的映像檔名稱為: ${IMAGE_TAG}"
 
