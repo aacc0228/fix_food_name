@@ -11,7 +11,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }} # 從 GitHub Secrets 讀取 GCP 專案 ID
   GAR_LOCATION: asia-east1 # Google Artifact Registry 的位置，例如 asia-east1 (台灣)
-  SERVICE_NAME: food-search-api # 您在 Cloud Run 上的服務名稱
+  SERVICE_NAME: fix_food_name # 您在 Cloud Run 上的服務名稱
   REGION: asia-east1 # 您 Cloud Run 服務的區域
 
 jobs:
