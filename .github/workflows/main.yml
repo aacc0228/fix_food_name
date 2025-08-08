@@ -36,6 +36,12 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      # ★★★ 新增的偵錯步驟 ★★★
+      - name: Debug Environment Variables
+        run: |
+          echo "Project ID from env is: [${{ env.PROJECT_ID }}]"
+          echo "Project ID from secret is: [${{ secrets.GCP_PROJECT_ID }}]"
+
       # 步驟 3: 設定 gcloud CLI
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
