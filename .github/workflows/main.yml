@@ -35,9 +35,27 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # ★★★ 最終除錯步驟：直接將 Project ID 寫死 ★★★
-      # 這樣可以完全排除讀取 Secret 失敗的可能性。
-      # 請將 'your-actual-project-id' 替換為您真實的 GCP 專案 ID。
+      # ★★★ 新增的除錯步驟：檢查服務帳戶的權限 ★★★
+      - name: Check Service Account Permissions
+        run: |
+          echo "--- 正在檢查已驗證的帳戶 ---"
+          gcloud auth list
+
+          echo "--- 正在從金鑰中提取服務帳戶 Email ---"
+          # 建立一個臨時檔案來存放金鑰內容
+          echo '${{ secrets.GCP_SA_KEY }}' > gcp_key.json
+          SA_EMAIL=$(cat gcp_key.json | jq -r .client_email)
+          echo "偵測到的服務帳戶 Email: $SA_EMAIL"
+
+          echo "--- 正在查詢此服務帳戶的 IAM 角色 ---"
+          PROJECT_ID="modular-buffer-467407-i0"
+          gcloud projects get-iam-policy $PROJECT_ID \
+            --flatten="bindings[].members" \
+            --format='table(bindings.role)' \
+            --filter="bindings.members:serviceAccount:$SA_EMAIL"
+          echo "--- 權限檢查結束 ---"
+
+      # 步驟 3: 組合 Docker 映像檔名稱
       - name: Construct Docker Image Name
         id: image_name
         run: |
@@ -55,12 +73,10 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
 
       # 步驟 6: 建置 Docker 映像檔
-      # 現在從上一步的輸出 (outputs) 中讀取完整的映像檔名稱
       - name: Build Docker image
         run: docker build -t ${{ steps.image_name.outputs.image_tag }} .
 
       # 步驟 7: 推送 Docker 映像檔至 Artifact Registry
-      # 同樣，從步驟輸出中讀取
       - name: Push Docker image
         run: docker push ${{ steps.image_name.outputs.image_tag }}
 
@@ -71,9 +87,7 @@ jobs:
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
-          # 同樣，從步驟輸出中讀取
           image: ${{ steps.image_name.outputs.image_tag }}
-          # 將 GitHub Secrets 作為環境變數傳遞給 Cloud Run
           env_vars: |
             AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
             AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}
