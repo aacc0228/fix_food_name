@@ -9,7 +9,7 @@ on:
 
 # 環境變數，方便在整個工作流程中重複使用
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }} # 從 GitHub Secrets 讀取 GCP 專案 ID
+  # PROJECT_ID 已從此處移除，改為在步驟中明確設定
   GAR_LOCATION: asia-east1 # Google Artifact Registry 的位置，例如 asia-east1 (台灣)
   SERVICE_NAME: food-search-api # 您在 Cloud Run 上的服務名稱
   REGION: asia-east1 # 您 Cloud Run 服務的區域
@@ -36,11 +36,14 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # ★★★ 新增的偵錯步驟 ★★★
+      # ★★★ 修正點：新增一個步驟來明確設定 PROJECT_ID 環境變數 ★★★
+      # 這是更可靠的做法，可以避免變數傳遞問題
+      - name: Set Project ID
+        run: echo "PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+
+      # 偵錯步驟：確認 PROJECT_ID 是否已成功設定
       - name: Debug Environment Variables
-        run: |
-          echo "Project ID from env is: [${{ env.PROJECT_ID }}]"
-          echo "Project ID from secret is: [${{ secrets.GCP_PROJECT_ID }}]"
+        run: echo "Project ID from env is: [${{ env.PROJECT_ID }}]"
 
       # 步驟 3: 設定 gcloud CLI
       - name: Set up Cloud SDK
