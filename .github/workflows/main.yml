@@ -29,13 +29,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 步驟 2: 使用 Workload Identity Federation 進行 GCP 驗證 (最安全的方式)
+      # 步驟 2: 使用服務帳戶金鑰 (Service Account Key) 進行 GCP 驗證
       - name: Google Auth
         id: auth
         uses: 'google-github-actions/auth@v2'
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       # 步驟 3: 設定 gcloud CLI
       - name: Set up Cloud SDK
@@ -72,7 +71,10 @@ jobs:
             QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
             DB_TYPE=${{ secrets.DB_TYPE }}
             DB_DRIVER=${{ secrets.DB_DRIVER }}
+            DB_SERVER=${{ secrets.DB_SERVER }}
             DB_DATABASE=${{ secrets.DB_DATABASE }}
+            DB_UID=${{ secrets.DB_UID }}
+            DB_PWD=${{ secrets.DB_PWD }}
             DB_HOST=${{ secrets.DB_HOST }}
             DB_USER=${{ secrets.DB_USER }}
             DB_MYSQL_PASSWORD=${{ secrets.DB_MYSQL_PASSWORD }}
