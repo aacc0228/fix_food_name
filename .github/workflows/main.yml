@@ -12,6 +12,7 @@ env:
   GAR_LOCATION: asia-east1 # Google Artifact Registry 的位置，例如 asia-east1 (台灣)
   SERVICE_NAME: food-search-api # 您在 Cloud Run 上的服務名稱
   REGION: asia-east1 # 您 Cloud Run 服務的區域
+  PROJECT_ID: modular-buffer-467407-i0 # 直接寫死專案 ID
 
 jobs:
   deploy:
@@ -35,59 +36,38 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # ★★★ 新增的除錯步驟：檢查服務帳戶的權限 ★★★
-      - name: Check Service Account Permissions
-        run: |
-          echo "--- 正在檢查已驗證的帳戶 ---"
-          gcloud auth list
-
-          echo "--- 正在從金鑰中提取服務帳戶 Email ---"
-          # 建立一個臨時檔案來存放金鑰內容
-          echo '${{ secrets.GCP_SA_KEY }}' > gcp_key.json
-          SA_EMAIL=$(cat gcp_key.json | jq -r .client_email)
-          echo "偵測到的服務帳戶 Email: $SA_EMAIL"
-
-          echo "--- 正在查詢此服務帳戶的 IAM 角色 ---"
-          PROJECT_ID="modular-buffer-467407-i0"
-          gcloud projects get-iam-policy $PROJECT_ID \
-            --flatten="bindings[].members" \
-            --format='table(bindings.role)' \
-            --filter="bindings.members:serviceAccount:$SA_EMAIL"
-          echo "--- 權限檢查結束 ---"
-
-      # 步驟 3: 組合 Docker 映像檔名稱
-      - name: Construct Docker Image Name
-        id: image_name
-        run: |
-          PROJECT_ID="modular-buffer-467407-i0" 
-          IMAGE_TAG="${{ env.GAR_LOCATION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
-          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
-          echo "組合後的映像檔名稱為: ${IMAGE_TAG}"
-
-      # 步驟 4: 設定 gcloud CLI
+      # 步驟 3: 設定 gcloud CLI
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
 
-      # 步驟 5: 授權 Docker 可以推送到 Google Artifact Registry
-      - name: Configure Docker
-        run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
+      # ★★★ 修正點：將 Docker 相關操作合併為一個步驟 ★★★
+      # 這樣可以確保 gcloud 授權和 docker 指令在同一個驗證上下文中執行，是最穩健的做法。
+      - name: Build and Push Docker Image
+        id: build-and-push
+        run: |
+          # 組合完整的映像檔名稱
+          IMAGE_TAG="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "組合後的映像檔名稱為: ${IMAGE_TAG}"
 
-      # 步驟 6: 建置 Docker 映像檔
-      - name: Build Docker image
-        run: docker build -t ${{ steps.image_name.outputs.image_tag }} .
+          # 授權 Docker
+          gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
+          
+          # 建置映像檔
+          docker build -t $IMAGE_TAG .
+          
+          # 推送映像檔
+          docker push $IMAGE_TAG
 
-      # 步驟 7: 推送 Docker 映像檔至 Artifact Registry
-      - name: Push Docker image
-        run: docker push ${{ steps.image_name.outputs.image_tag }}
-
-      # 步驟 8: 部署新的映像檔至 Cloud Run
+      # 步驟 4: 部署新的映像檔至 Cloud Run
       - name: Deploy to Cloud Run
         id: deploy
         uses: 'google-github-actions/deploy-cloudrun@v2'
         with:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
-          image: ${{ steps.image_name.outputs.image_tag }}
+          # 從上一步的輸出中讀取完整的映像檔名稱
+          image: ${{ steps.build-and-push.outputs.IMAGE_TAG }}
           env_vars: |
             AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
             AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}
@@ -106,6 +86,6 @@ jobs:
             DB_MYSQL_PASSWORD=${{ secrets.DB_MYSQL_PASSWORD }}
             DB_MYSQL_NAME=${{ secrets.DB_MYSQL_NAME }}
 
-      # 步驟 9: 輸出部署後的服務網址
+      # 步驟 5: 輸出部署後的服務網址
       - name: Show Output
         run: echo "Successfully deployed to ${{ steps.deploy.outputs.url }}"
