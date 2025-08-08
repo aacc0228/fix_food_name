@@ -35,6 +35,18 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      # ★★★ 新增的驗證步驟 ★★★
+      # 在執行任何操作前，先檢查 GCP_PROJECT_ID 是否存在。
+      # 如果這個步驟失敗，代表您的 GitHub Secret 沒有被正確讀取。
+      - name: Validate GCP_PROJECT_ID Secret
+        run: |
+          if [ -z "${{ secrets.GCP_PROJECT_ID }}" ]; then
+            echo "錯誤：找不到 GCP_PROJECT_ID Secret。請檢查您的 GitHub 倉庫設定。"
+            exit 1
+          else
+            echo "成功讀取 GCP_PROJECT_ID Secret。"
+          fi
+
       # 步驟 3: 設定 gcloud CLI (這個步驟會自動設定專案)
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
@@ -44,8 +56,6 @@ jobs:
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
 
       # 步驟 5: 建置 Docker 映像檔
-      # ★★★ 修正點：直接在指令中使用 secrets.GCP_PROJECT_ID ★★★
-      # 這是最直接的方式，可以避免環境變數傳遞的問題。
       - name: Build Docker image
         run: docker build -t ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
 
