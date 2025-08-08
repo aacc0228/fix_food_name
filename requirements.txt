@@ -1,6 +1,8 @@
 Flask
+google-generativeai
 python-dotenv
+qdrant-client
 pyodbc
 mysql-connector-python
 openai
-qdrant-client
+gunicorn

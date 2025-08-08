@@ -1,0 +1,19 @@
+# Python 虛擬環境
+.venv
+venv/
+
+# Python 快取檔案
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 環境變數檔案 (這些應該用 Secret 管理)
+.env
+
+# Git 相關檔案
+.git
+.gitignore
+
+# IDE 設定檔
+.vscode/
